@@ -32,7 +32,7 @@ def get_population_by_gender(df: pd.DataFrame) -> pd.DataFrame:
     percentages = counts / total * 100
     result_df = pd.DataFrame({
         'Count': counts,
-        'Percentage_Raw': percentages
+        'Percentage': percentages
     })
     return result_df.reset_index(), total
 
@@ -44,7 +44,7 @@ def get_sales_by_gender(df: pd.DataFrame) -> pd.DataFrame:
     
     sales = df_temp.groupby('gender', as_index=False)['total_sales'].sum()
     grand_total = sales['total_sales'].sum()
-    sales['Percentage_Raw'] = (sales['total_sales'] / grand_total * 100)
+    sales['Percentage'] = (sales['total_sales'] / grand_total * 100)
     
     return sales, grand_total
 
@@ -57,7 +57,7 @@ def get_most_used_payment(df: pd.DataFrame) -> str:
     
     result_df = pd.DataFrame({
         'Count': counts,
-        'Percentage_Raw': percentages
+        'Percentage': percentages
     })
     
     most_used = counts.idxmax()
@@ -92,8 +92,8 @@ def main():
     # --- 1. Population by Gender ---
     population_df, total_population = get_population_by_gender(df)
     print("\n1. Population Grouped by Gender")
-    population_df['Percentage'] = population_df['Percentage_Raw'].map("{:.2f}%".format)
-    display_df = population_df.rename(columns={'index': 'Gender', 'Percentage_Raw': 'Raw'}).drop(columns='Raw')
+    population_df['Percentage'] = population_df['Percentage'].map("{:.2f}%".format)
+    display_df = population_df.rename(columns={'index': 'Gender'})
     print(display_df.to_string(index=False))
     print(f"Total: {total_population:,}")
 
@@ -101,16 +101,16 @@ def main():
     sales_df, grand_total_sales = get_sales_by_gender(df)
     print("\n2. Total Sales by Gender")
     sales_df['Total Sales'] = sales_df['total_sales'].map("${:,.2f}".format)
-    sales_df['Percentage'] = sales_df['Percentage_Raw'].map("{:.2f}%".format)
-    display_df = sales_df.rename(columns={'gender': 'Gender', 'total_sales': 'Raw', 'Percentage_Raw': 'Raw2'}).drop(columns=['Raw', 'Raw2'])
+    sales_df['Percentage'] = sales_df['Percentage'].map("{:.2f}%".format)
+    display_df = sales_df.rename(columns={'gender': 'Gender'}).drop(columns=['total_sales'])
     print(display_df.to_string(index=False))
     print(f"Grand Total: ${grand_total_sales:,.2f}")
 
     # --- 3. Most Used Payment Method ---
     payment_df, most_used_method, most_used_count = get_most_used_payment(df)
     print("\n3. Payment Method Usage")
-    payment_df['Percentage'] = payment_df['Percentage_Raw'].map("{:.2f}%".format)
-    display_df = payment_df.rename(columns={'index': 'Payment Method', 'Percentage_Raw': 'Raw'}).drop(columns='Raw')
+    payment_df['Percentage'] = payment_df['Percentage'].map("{:.2f}%".format)
+    display_df = payment_df.rename(columns={'index': 'Payment Method'})
     print(display_df.to_string(index=False))
     print(f"\nMost used payment method: {most_used_method} ({most_used_count:,} transactions)")
 
