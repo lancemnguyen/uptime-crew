@@ -1,110 +1,135 @@
+"""
+Producer-Consumer Example using Python Threads and Queue
+
+This module demonstrates a classic producer–consumer pattern implemented with
+Python's standard `threading` and `queue` modules. A producer thread generates
+random numeric data and places it into a thread-safe queue, while a consumer
+thread retrieves items from the queue and stores them in a destination list.
+
+Design highlights:
+- Uses `queue.Queue` for built-in thread synchronization (no manual locks).
+- Demonstrates blocking behavior when the queue is full or empty.
+- Uses a sentinel value `(None, None)` to signal completion to the consumer.
+- Implements structured logging for clarity and debugging.
+- Includes validation and timing measurements in the main workflow.
+"""
+
 import threading
 import queue
-import typing
-from typing import Optional
 import random
 import time
+import logging
+from typing import List, Optional, Union
 
-Number = typing.Union[int, float]
-DEBUG = False
+Number = Union[int, float]
 
-# 4. Implement a Producer that will read numbers from the source container into the queue and notify the consumer when the queue is full.
-class Producer(threading.Thread):
-    def __init__(self, source: typing.List[Number], q: queue.Queue):
-        super().__init__(name="Producer")
-        self.source = source
-        self.q = q
+# Configure logging (INFO for normal output, DEBUG for verbose tracing)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(threadName)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
 
-    def run(self):
-        try:
-            # store both index and item into the queue to maintain order
-            for i, item in enumerate(self.source):
-                self.q.put((i, item)) # internally blocks if the queue is full
+def producer(source: List[Number], q: queue.Queue) -> None:
+    """
+    Producer thread function.
 
-                # producer activity
-                if DEBUG:
-                    print(f"Producer: put index={i}, value={item} (queue size={self.q.qsize()})")
-            
-            self.q.put((None, None)) # signal consumer to stop
-            print("Producer finished.")
+    Sequentially reads items from a source list and places them into a shared
+    queue along with their indices. This function blocks when the queue is
+    full, ensuring back-pressure between producer and consumer.
 
-        except Exception as e:
-            print(f"Producer error: {e}")
+    After producing all items, a sentinel value `(None, None)` is added to
+    indicate that production is complete.
 
+    Parameters:
+    -----------
+    source : List[Number]
+        The list of numeric values to be produced.
+    q : queue.Queue
+        The shared queue used to transfer data between threads.
+    """
+    try:
+        for i, item in enumerate(source):
+            q.put((i, item))  # blocks if queue is full
+            logging.debug(f"Produced index={i}, value={item}, queue size={q.qsize()}")
 
-# 5. Create a consumer that will read from the queue into the destination container and notify the producer when the queue is empty.
-class Consumer(threading.Thread):
-    def __init__(self, destination: typing.List[Optional[Number]], q: queue.Queue):
-        super().__init__(name="Consumer")
-        self.destination = destination
-        self.q = q
+        # Signal to the consumer that production is complete
+        q.put((None, None))
+        logging.info("Producer finished producing all items.")
+    except Exception as e:
+        logging.error(f"Producer error: {e}")
 
-    def run(self):
-        try:
-            while True:
-                i_item = self.q.get() # internally blocks if the queue is empty
-                
-                if i_item == (None, None):
-                    self.q.task_done()
-                    break
+def consumer(destination: List[Optional[Number]], q: queue.Queue) -> None:
+    """
+    Consumer thread function.
 
-                i, item = i_item
-                self.destination[i] = item
+    Continuously retrieves (index, item) pairs from the shared queue and writes
+    each item into the corresponding position of the destination list. The
+    consumer terminates when it encounters the sentinel `(None, None)`.
 
-                # consumer activity
-                if DEBUG:
-                    print(f"Consumer: got index={i}, value={item} (queue size={self.q.qsize()})")
+    Parameters
+    ----------
+    destination : List[Optional[Number]]
+        The list that receives items consumed from the queue.
+    q : queue.Queue
+        The shared queue from which data is consumed.
+    """
+    try:
+        while True:
+            i_item = q.get()  # blocks if queue is empty
 
-                self.q.task_done() # mark the item as processed
+            if i_item == (None, None):
+                q.task_done()
+                break
 
-            print("Consumer finished.")
+            i, item = i_item
+            destination[i] = item
+            logging.debug(f"Consumed index={i}, value={item}, queue size={q.qsize()}")
+            q.task_done()
 
-        except Exception as e:
-            print(f"Consumer error: {e}")
-
+        logging.info("Consumer finished consuming all items.")
+    except Exception as e:
+        logging.error(f"Consumer error: {e}")
 
 def main():
-    # 1. Create a source container and populate it with integers and doubles.
-    SOURCE_SIZE = 10
-    source: typing.List[Number] = [
-        random.choice([random.randint(1, 100), round(random.random() * 100, 4)]) for _ in range(SOURCE_SIZE)
+    """
+    Run a demonstration of the producer–consumer workflow.
+
+    This function initializes a random dataset, starts the producer and
+    consumer threads, waits for both to complete, and verifies that all
+    data was transferred correctly.
+
+    Steps
+    -----
+    1. Create a list of random integers and floats.
+    2. Initialize a bounded queue to simulate back-pressure.
+    3. Launch producer and consumer threads.
+    4. Wait for threads to complete.
+    5. Validate results and log execution time.
+    """
+    size = 10
+
+    # Generate random data: mixture of ints and floats
+    source = [random.choice([random.randint(1, 100), random.random() * 100]) for _ in range(size)]
+    destination = [None] * size
+    q = queue.Queue(maxsize=max(1, size // 2))  # half-capacity queue
+
+    start = time.perf_counter()
+
+    threads = [
+        threading.Thread(target=producer, args=(source, q), name="Producer"),
+        threading.Thread(target=consumer, args=(destination, q), name="Consumer")
     ]
-    
-    if not source:
-        print("Empty source, nothing to produce or consume.")
-        return
 
-    # 2. Create a destination container that can store both integers and doubles with the same capacity as the source container from task 1.
-    destination: typing.List[Optional[Number]] = [None] * len(source)
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
 
-    # 3. Create a queue with half the capacity of the source container from task 1.
-    q = queue.Queue(maxsize=max(1, len(source) // 2))
+    elapsed = time.perf_counter() - start
 
-    try:
-        # Create and start producer/consumer threads
-        producer = Producer(source, q)
-        consumer = Consumer(destination, q)
-
-        start_time = time.perf_counter()
-        
-        producer.start()
-        consumer.start()
-
-        # wait for both threads to finish
-        producer.join()
-        consumer.join()
-
-        end_time = time.perf_counter()
-
-        # 6. Write a test to confirm the numbers from the source container have been copied to the destination container.
-        print("Test passed!" if source == destination else "Test failed!")
-        print(f"Source:      {source}")
-        print(f"Destination: {destination}")
-        print(f"Total execution time: {end_time - start_time:.4f} seconds.")
-    
-    except Exception as e:
-        print(f"Main thread error: {e}")
-
+    assert source == destination, "Data mismatch between source and destination"
+    logging.info(f"All data transferred successfully in {elapsed:.4f}s")
 
 if __name__ == "__main__":
     main()
