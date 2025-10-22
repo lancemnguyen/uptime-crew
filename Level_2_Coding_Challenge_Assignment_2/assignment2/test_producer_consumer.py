@@ -1,8 +1,5 @@
 """
 Unit test for producer_consumer module.
-
-Verifies that the producer-consumer workflow correctly transfers data
-from a source list to a destination list using Python threads and a queue.
 """
 
 import queue
@@ -11,7 +8,8 @@ from producer_consumer import producer, consumer
 
 def test_producer_consumer():
     """
-    Verify that the producer and consumer threads transfer all data correctly.
+    Verify that the producer-consumer workflow correctly transfers data
+    from a source list to a destination list using Python threads and a queue.
 
     Steps
     -----
