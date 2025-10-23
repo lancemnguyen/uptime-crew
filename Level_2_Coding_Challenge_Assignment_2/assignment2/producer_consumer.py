@@ -30,9 +30,9 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-def producer(source: List[Number], q: queue.Queue) -> None:
+class Producer(threading.Thread):
     """
-    Producer thread function.
+    Producer thread class.
 
     Sequentially reads items from a source list and places them into a shared
     queue along with their indices. This function blocks when the queue is
@@ -48,20 +48,27 @@ def producer(source: List[Number], q: queue.Queue) -> None:
     q : queue.Queue
         The shared queue used to transfer data between threads.
     """
-    try:
-        for i, item in enumerate(source):
-            q.put((i, item))  # blocks if queue is full
-            logging.debug(f"Produced index={i}, value={item}, queue size={q.qsize()}")
+    def __init__(self, source: List[Number], q: queue.Queue, name="Producer"):
+        super().__init__(name=name)
+        self.source = source
+        self.q = q
 
-        # Signal to the consumer that production is complete
-        q.put((None, None))
-        logging.info("Producer finished producing all items.")
-    except Exception as e:
-        logging.error(f"Producer error: {e}")
+    def run(self):
+        try:
+            for i, item in enumerate(self.source):
+                self.q.put((i, item))  # blocks if queue is full
+                logging.debug(f"Produced index={i}, value={item}, queue size={self.q.qsize()}")
 
-def consumer(destination: List[Optional[Number]], q: queue.Queue) -> None:
+            # Signal to the consumer that production is complete
+            self.q.put((None, None))
+            logging.info("Producer finished producing all items.")
+        except Exception as e:
+            logging.error(f"Producer error: {e}")
+
+
+class Consumer(threading.Thread):
     """
-    Consumer thread function.
+    Consumer thread class.
 
     Continuously retrieves (index, item) pairs from the shared queue and writes
     each item into the corresponding position of the destination list. The
@@ -74,22 +81,29 @@ def consumer(destination: List[Optional[Number]], q: queue.Queue) -> None:
     q : queue.Queue
         The shared queue from which data is consumed.
     """
-    try:
-        while True:
-            i_item = q.get()  # blocks if queue is empty
+    def __init__(self, destination: List[Optional[Number]], q: queue.Queue, name="Consumer"):
+        super().__init__(name=name)
+        self.destination = destination
+        self.q = q
+    
 
-            if i_item == (None, None):
-                q.task_done()
-                break
+    def run(self):
+        try:
+            while True:
+                i_item = self.q.get()  # blocks if queue is empty
 
-            i, item = i_item
-            destination[i] = item
-            logging.debug(f"Consumed index={i}, value={item}, queue size={q.qsize()}")
-            q.task_done()
+                if i_item == (None, None):
+                    self.q.task_done()
+                    break
 
-        logging.info("Consumer finished consuming all items.")
-    except Exception as e:
-        logging.error(f"Consumer error: {e}")
+                i, item = i_item
+                self.destination[i] = item
+                logging.debug(f"Consumed index={i}, value={item}, queue size={self.q.qsize()}")
+                self.q.task_done()
+
+            logging.info("Consumer finished consuming all items.")
+        except Exception as e:
+            logging.error(f"Consumer error: {e}")
 
 def main():
     """
@@ -117,8 +131,8 @@ def main():
     start = time.perf_counter()
 
     threads = [
-        threading.Thread(target=producer, args=(source, q), name="Producer"),
-        threading.Thread(target=consumer, args=(destination, q), name="Consumer")
+        Producer(source=source, q=q, name="Producer"),
+        Consumer(destination=destination, q=q, name="Consumer")
     ]
 
     for t in threads:

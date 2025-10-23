@@ -8,7 +8,7 @@ correctly transfers data between threads using a shared queue.
 import unittest
 import threading
 import queue
-from producer_consumer import producer, consumer
+from producer_consumer import Producer, Consumer
 
 
 class TestProducerConsumer(unittest.TestCase):
@@ -19,8 +19,8 @@ class TestProducerConsumer(unittest.TestCase):
         destination = [None] * len(source)
         q = queue.Queue(maxsize=max(1, len(source) // 2))  # simulate bounded queue
 
-        producer_thread = threading.Thread(target=producer, args=(source, q), name="ProducerTest")
-        consumer_thread = threading.Thread(target=consumer, args=(destination, q), name="ConsumerTest")
+        producer_thread = Producer(source=source, q=q, name="ProducerTest")
+        consumer_thread = Consumer(destination=destination, q=q, name="ConsumerTest")
 
         producer_thread.start()
         consumer_thread.start()
