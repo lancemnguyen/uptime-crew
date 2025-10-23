@@ -76,8 +76,6 @@ class TestProducerConsumer(unittest.TestCase):
         source = [9, 7, 5, 3, 1]
         destination = self.run_test_case(source)
         self.assertEqual(source, destination)
-        for i, (src, dst) in enumerate(zip(source, destination)):
-            self.assertEqual(src, dst, f"Mismatch at index {i}: {src} != {dst}")
 
 
 if __name__ == "__main__":
