@@ -47,6 +47,8 @@ class Producer(threading.Thread):
         The list of numeric values to be produced.
     q : queue.Queue
         The shared queue used to transfer data between threads.
+    name : str
+        The name of the producer thread.
     """
     def __init__(self, source: List[Number], q: queue.Queue, name="Producer"):
         super().__init__(name=name)
@@ -80,6 +82,8 @@ class Consumer(threading.Thread):
         The list that receives items consumed from the queue.
     q : queue.Queue
         The shared queue from which data is consumed.
+    name : str
+        The name of the consumer thread.
     """
     def __init__(self, destination: List[Optional[Number]], q: queue.Queue, name="Consumer"):
         super().__init__(name=name)
@@ -112,24 +116,19 @@ def main():
     This function initializes a random dataset, starts the producer and
     consumer threads, waits for both to complete, and verifies that all
     data was transferred correctly.
-
-    Steps
-    -----
-    1. Create a list of random integers and floats.
-    2. Initialize a bounded queue to simulate back-pressure.
-    3. Launch producer and consumer threads.
-    4. Wait for threads to complete.
-    5. Validate results and log execution time.
     """
     size = 10
 
-    # Generate random data: mixture of ints and floats
+    # Create a list of random integers and floats.
     source = [random.choice([random.randint(1, 100), random.random() * 100]) for _ in range(size)]
     destination = [None] * size
+
+    # Initialize a bounded queue to simulate back-pressure.
     q = queue.Queue(maxsize=max(1, size // 2))  # half-capacity queue
 
     start = time.perf_counter()
 
+    # Launch producer and consumer threads.
     threads = [
         Producer(source=source, q=q, name="Producer"),
         Consumer(destination=destination, q=q, name="Consumer")
@@ -137,11 +136,14 @@ def main():
 
     for t in threads:
         t.start()
+
+    # Wait for threads to complete.
     for t in threads:
         t.join()
 
     elapsed = time.perf_counter() - start
 
+    # Validate results and log execution time.
     assert source == destination, "Data mismatch between source and destination"
     logging.info(f"All data transferred successfully in {elapsed:.4f}s")
 
